@@ -1,5 +1,8 @@
 name: Deploy Monorepo
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
     inputs:
@@ -14,6 +17,9 @@ on:
         description: 'additional build flags'
       env:
         description: 'set env for build'
+      patch-workers:
+        description: 'if workers should be patched'
+        type: boolean
       repository:
         description: 'repository for genshin-optimizer'
         default: eeeqeee/genshin-optimizer
@@ -32,13 +38,11 @@ jobs:
     - name: Disable files
       run: |
         echo > genshin-optimizer/libs/dm/scripts/loadDM.ts
-        echo > genshin-optimizer/libs/g-assets-gen/src/index.ts
-        echo > genshin-optimizer/libs/g-assets/src/index.ts
     - name: Checkout GenshinData
       uses: actions/checkout@v3
       with:
         repository: eeeqeee/GenshinData
-        # ref: trimmed
+        ref: trimmed
         path: genshin-optimizer/libs/dm/GenshinData
         ssh-key: ${{ secrets.ssh_key_genshindata }}
     - uses: actions/setup-node@v3
@@ -60,7 +64,7 @@ jobs:
       run: |
         if [[ -z "${{ github.event.inputs.public-url }}" ]]; then
           # N.B. can't use "." since workers will resolve relative to their own path e.g "static/js/static/js/..."
-          echo "url=${{ steps.get-path.outputs.path }}" >> $GITHUB_OUTPUT
+          echo "url=${{ steps.get-path.outputs.path }}/" >> $GITHUB_OUTPUT
         else
           echo "url=${{ github.event.inputs.public-url }}" >> $GITHUB_OUTPUT
         fi
@@ -71,7 +75,12 @@ jobs:
         echo "msg=\"deploy: $(git rev-parse HEAD) to ${{ steps.get-path.outputs.path }}\"" >> $GITHUB_OUTPUT
       working-directory: genshin-optimizer
     - run: |
-        yarn install --locked
+        yarn install --immutable --immutable-cache --check-cache
+      working-directory: genshin-optimizer
+    - name: Patch for worker bug
+      if: github.event.inputs.patch-workers == 'true'
+      run: |
+        sed -i "s/scriptType: internalOptions.esm ? 'module' : undefined,/scriptType: 'text\/javascript',/" node_modules/@nrwl/webpack/src/utils/config.js
       working-directory: genshin-optimizer
     - name: Build genshin-optimizer
       run: |
