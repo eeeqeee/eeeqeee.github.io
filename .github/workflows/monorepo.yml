@@ -45,6 +45,8 @@ jobs:
         ref: trimmed
         path: genshin-optimizer/libs/dm/GenshinData
         ssh-key: ${{ secrets.ssh_key_genshindata }}
+    - run: |
+        corepack prepare yarn@3.4.1
     - uses: actions/setup-node@v3
       with:
         node-version: 18
@@ -75,7 +77,7 @@ jobs:
         echo "msg=\"deploy: $(git rev-parse HEAD) to ${{ steps.get-path.outputs.path }}\"" >> $GITHUB_OUTPUT
       working-directory: genshin-optimizer
     - run: |
-        yarn install --immutable --immutable-cache --check-cache
+        yarn install --immutable
       working-directory: genshin-optimizer
     - name: Patch for worker bug
       if: github.event.inputs.patch-workers == 'true'
